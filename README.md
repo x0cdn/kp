@@ -3,6 +3,7 @@ kp-online
 
 Install OrangeMonkey/GreaseMonkey & copypaste:
 
+
 // ==UserScript==
 // @name         Kinopoisk → Mirrors (4 кнопки)
 // @namespace    https://github.com/
