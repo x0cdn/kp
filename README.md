@@ -5,7 +5,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
 ```javascript
 // ==UserScript==
-// @name         Kinopoisk → Mirrors (4 кнопки)
+// @name         Kinopoisk → Mirrors (4 buttons)
 // @namespace    https://github.com/
 // @version      1.3
 // @description  4 buttons. Support for Movies and TV Shows.
@@ -29,13 +29,13 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
     function getCurrentTypeAndId() {
         const path = window.location.pathname.toLowerCase();
 
-        // Более надёжное определение
+        // A more reliable definition
         let match = path.match(/\/(film|series)\/(\d+)/i);
         if (match) {
             return { type: match[1], id: match[2] };
         }
 
-        // Дополнительные варианты (с trailing slash, /view и т.д.)
+        //  Additional Options (trailing slash, /view etc)
         match = path.match(/\/(film|series)\/(\d+)/i);
         if (match) {
             return { type: match[1], id: match[2] };
@@ -74,7 +74,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             if (info) {
                 href += `/${info.type}/${info.id}`;
             } else {
-                href += '/'; // если не на странице фильма/сериала
+                href += '/'; // unless it's on the movie/TV show page
             }
 
             btn.href = href;
@@ -98,12 +98,12 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             container.appendChild(btn);
         });
 
-        // Добавляем на страницу
+        // Add to the page
         const insertPoint = document.body || document.documentElement;
         insertPoint.insertBefore(container, insertPoint.firstChild);
     }
 
-    // Запуск
+    // Start
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createButtons);
     } else {
