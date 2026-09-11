@@ -1,14 +1,14 @@
 # kp
 kp-online
 
-Install OrangeMonkey/GreaseMonkey & copypaste:
+Install OrangeMonkey/GreaseMonkey & install UserScript
 
-
+```javascript
 // ==UserScript==
 // @name         Kinopoisk → Mirrors (4 кнопки)
 // @namespace    https://github.com/
 // @version      1.3
-// @description  Добавляет 4 кнопки зеркал сверху. Поддержка film и series
+// @description  4 buttons. Support for Movies and TV Shows.
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
@@ -110,3 +110,4 @@ Install OrangeMonkey/GreaseMonkey & copypaste:
         createButtons();
     }
 })();
+```
