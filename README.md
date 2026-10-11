@@ -5,42 +5,41 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
 ```javascript
 // ==UserScript==
-// @name         Kinopoisk → Mirrors (4 buttons)
-// @namespace    https://github.com/
+// @name         Kinopoisk → Mirrors
+// @namespace    https://github.com/x0cdn/kp
 // @version      1.4
-// @description  Buttons. Support for Movies and TV Shows. Page auto-reload.
+// @description  Кнопки зеркал + авто-перезагрузка после поиска
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
 // @grant        none
 // @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
+// @downloadURL  https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
 // ==/UserScript==
 
 (function () {
     'use strict';
 
     const mirrors = [
-        { name: "ONE",  base: "https://kinopoisk.one" },
-        { name: "LAT",  base: "https://kinopoisk.lat" },
-        { name: "CAM",  base: "https://kinopoisk.cam" },
-        { name: "Kinokino.win",  base: "https://kinokino.win" },
-        { name: "Kinokino.vip",  base: "https://kinokino.vip" },
-        { name: "Sspoisk.ru",  base: "https://sspoisk.ru" },
+        { name: "LAT",          base: "https://kinopoisk.lat" },
+        { name: "CFD",          base: "https://kinopoisk.cfd" },
+        { name: "ONE",          base: "https://kinopoisk.one" },
+        { name: "CAM",          base: "https://kinopoisk.cam" },
+        { name: "Kinokino.win", base: "https://kinokino.win" },
+        { name: "Kinokino.vip", base: "https://kinokino.vip" },
+        { name: "Sspoisk.ru",   base: "https://sspoisk.ru" },
         { name: "Kinopoisk.gold", base: "https://kinopoisk.gold" },
-        { name: "Kinopoisk.cx",  base: "https://kinopoisk.cx" }
+        { name: "Kinopoisk.cx", base: "https://kinopoisk.cx" }
     ];
 
     function getCurrentTypeAndId() {
         const path = window.location.pathname.toLowerCase();
-        let match = path.match(/\/(film|series)\/(\d+)/i);
-        if (match) {
-            return { type: match[1], id: match[2] };
-        }
-        return null;
+        const match = path.match(/\/(film|series)\/(\d+)/i);
+        return match ? { type: match[1], id: match[2] } : null;
     }
 
     function createButtons() {
-        // delete old buttons
         const old = document.getElementById('kp-mirrors-buttons');
         if (old) old.remove();
 
@@ -52,29 +51,20 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             margin-top: 100px;
             top: 0;
             left: 0;
-            right: 100;
             background: #1f1f1f;
             border-bottom: 3px solid #ffcc00;
             z-index: 2147483647;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: left;
             gap: 14px;
-            padding: 1px 0;
+            padding: 8px 0;
             font-family: Arial, sans-serif;
             box-shadow: 0 4px 12px rgba(0,0,0,0.6);
         `;
 
         mirrors.forEach(mirror => {
             const btn = document.createElement('a');
-            let href = mirror.base;
-            if (info) {
-                href += `/${info.type}/${info.id}`;
-            } else {
-                href += '/';
-            }
-            btn.href = href;
+            btn.href = info ? `${mirror.base}/${info.type}/${info.id}` : `${mirror.base}/`;
             btn.target = "_blank";
             btn.textContent = mirror.name;
             btn.style.cssText = `
@@ -87,48 +77,37 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                 font-size: 15px;
                 box-shadow: 0 3px 6px rgba(0,0,0,0.4);
                 transition: all 0.2s;
+                margin: 0 8px;
             `;
             btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
-            btn.addEventListener('mouseout', () => btn.style.transform = 'none');
+            btn.addEventListener('mouseout',  () => btn.style.transform = 'none');
             container.appendChild(btn);
         });
 
-        const insertPoint = document.body || document.documentElement;
-        insertPoint.insertBefore(container, insertPoint.firstChild);
+        (document.body || document.documentElement).insertBefore(container, (document.body || document.documentElement).firstChild);
     }
 
-    // === autoupdate page ===
+    // Авто-перезагрузка после поиска
     function isSearchUrl(url) {
-        return (
-            url.includes('kp_query=') ||
-            url.includes('/s/') ||
-            (url.includes('/index.php') && url.includes('query'))
-        );
+        return url.includes('kp_query=') || url.includes('/s/') ||
+               (url.includes('/index.php') && url.includes('query'));
     }
 
     let lastUrl = location.href;
 
-    // Отслеживаем изменение URL (для SPA-навигации)
     const checkUrlChange = () => {
         const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-            lastUrl = currentUrl;
+        if (currentUrl === lastUrl) return;
+        lastUrl = currentUrl;
 
-            // Если это страница поиска — принудительно перезагружаем
-            if (isSearchUrl(currentUrl)) {
-                // Небольшая задержка, чтобы навигация успела завершиться
-                setTimeout(() => {
-                    location.reload();
-                }, 300);
-                return;
-            }
-
-            // На обычных страницах просто пересоздаём кнопки
-            createButtons();
+        if (isSearchUrl(currentUrl)) {
+            setTimeout(() => location.reload(), 300);
+            return;
         }
+        createButtons();
     };
 
-    // Перехват pushState / replaceState (React использует их)
+    // Перехват истории (React)
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
 
@@ -136,7 +115,6 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
         originalPushState.apply(this, args);
         checkUrlChange();
     };
-
     history.replaceState = function (...args) {
         originalReplaceState.apply(this, args);
         checkUrlChange();
@@ -144,13 +122,12 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
     window.addEventListener('popstate', checkUrlChange);
 
-    // Дополнительно через MutationObserver (на случай, если history не сработает)
     new MutationObserver(checkUrlChange).observe(document, {
         subtree: true,
         childList: true
     });
 
-    // Старт
+    // Запуск
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createButtons);
     } else {
