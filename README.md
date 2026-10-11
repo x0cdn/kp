@@ -8,7 +8,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 // @name         Kinopoisk → Mirrors (4 buttons)
 // @namespace    https://github.com/
 // @version      1.4
-// @description  4 buttons. Support for Movies and TV Shows. Auto-reload after search.
+// @description  Buttons. Support for Movies and TV Shows. Page auto-reload.
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
@@ -20,10 +20,13 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
     'use strict';
 
     const mirrors = [
+        { name: "ONE",  base: "https://kinopoisk.one" },
+        { name: "LAT",  base: "https://kinopoisk.lat" },
+        { name: "CAM",  base: "https://kinopoisk.cam" },
         { name: "Kinokino.win",  base: "https://kinokino.win" },
         { name: "Kinokino.vip",  base: "https://kinokino.vip" },
-        { name: "Kinopoisk.gold", base: "https://kinopoisk.gold" },
         { name: "Sspoisk.ru",  base: "https://sspoisk.ru" },
+        { name: "Kinopoisk.gold", base: "https://kinopoisk.gold" },
         { name: "Kinopoisk.cx",  base: "https://kinopoisk.cx" }
     ];
 
