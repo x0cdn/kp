@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.4
+// @version      1.4.1
 // @description  Кнопки зеркал + авто-перезагрузка после поиска
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
