@@ -5,15 +5,16 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
 ```javascript
 // ==UserScript==
-// @name         Kinopoisk → Mirrors
+// @name         Kinopoisk — All-in-One (Mirrors + Compact Header + 50 Cards)
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.5
+// @version      1.5.1
 // @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
 // @grant        none
 // @run-at       document-start
+// @noframes
 // @updateURL    https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
 // @downloadURL  https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
 // ==/UserScript==
@@ -25,6 +26,9 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
      *  МОДУЛЬ 1 — Кнопки зеркал + авто-перезагрузка после поиска
      * ============================================================ */
     (function mirrorsModule() {
+        const DEBUG = false;
+        const log = (...a) => DEBUG && console.log('[KP:mirrors]', ...a);
+
         const mirrors = [
             { name: "MEN",          base: "https://kinopoisk.men" },
             { name: "LAT",          base: "https://kinopoisk.lat" },
@@ -48,6 +52,9 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             const old = document.getElementById('kp-mirrors-buttons');
             if (old) old.remove();
 
+            const root = document.body || document.documentElement;
+            if (!root) return;
+
             const info = getCurrentTypeAndId();
             const container = document.createElement('div');
             container.id = 'kp-mirrors-buttons';
@@ -70,6 +77,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                 const btn = document.createElement('a');
                 btn.href = info ? `${mirror.base}/${info.type}/${info.id}` : `${mirror.base}/`;
                 btn.target = "_blank";
+                btn.rel = "noopener noreferrer";
                 btn.textContent = mirror.name;
                 btn.style.cssText = `
                     color: #fff;
@@ -80,7 +88,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                     font-weight: bold;
                     font-size: 15px;
                     box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-                    transition: all 0.2s;
+                    transition: transform 0.2s;
                     margin: 0 8px;
                 `;
                 btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
@@ -88,10 +96,8 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                 container.appendChild(btn);
             });
 
-            (document.body || document.documentElement).insertBefore(
-                container,
-                (document.body || document.documentElement).firstChild
-            );
+            root.insertBefore(container, root.firstChild);
+            log('кнопки обновлены');
         }
 
         function isSearchUrl(url) {
@@ -107,6 +113,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             lastUrl = currentUrl;
 
             if (isSearchUrl(currentUrl)) {
+                log('поиск → перезагрузка');
                 setTimeout(() => location.reload(), 300);
                 return;
             }
@@ -127,13 +134,8 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
         window.addEventListener('popstate', checkUrlChange);
 
-        new MutationObserver(checkUrlChange).observe(document, {
-            subtree: true,
-            childList: true
-        });
-
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createButtons);
+            document.addEventListener('DOMContentLoaded', createButtons, { once: true });
         } else {
             createButtons();
         }
@@ -192,19 +194,20 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
         style.id = 'kp-compact-header-v7';
         style.textContent = css;
 
-        function inject() {
-            if (document.getElementById(style.id)) return;
-            (document.head || document.documentElement).appendChild(style);
+        // head доступен уже на document-start — повторный вызов не нужен
+        const root = document.head || document.documentElement;
+        if (root && !document.getElementById(style.id)) {
+            root.appendChild(style);
         }
-
-        inject();
-        document.addEventListener('DOMContentLoaded', inject, { once: true });
     })();
 
     /* ============================================================
      *  МОДУЛЬ 3 — По 50 карточек при открытии и «Показать ещё»
      * ============================================================ */
     (function fiftyCardsModule() {
+        const DEBUG = false;
+        const log = (...a) => DEBUG && console.log('[KP:cards]', ...a);
+
         const BATCH = 50;
         const WAIT_MS = 800;
         const MAX_STALLS = 5;
@@ -212,6 +215,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
 
         let loading = false;
         let initialized = false;
+        let observer = null;
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -263,7 +267,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                 let stalls = 0;
                 let clicks = 0;
 
-                console.log(`[Kinopoisk] Цель: ${target} карточек`);
+                log(`цель: ${target} карточек`);
 
                 while (clicks < MAX_BATCH_CLICKS) {
                     button = findButton();
@@ -284,7 +288,7 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
                     }
                 }
 
-                console.log('[Kinopoisk] Загрузка завершена');
+                log('загрузка завершена');
             } finally {
                 loading = false;
             }
@@ -301,26 +305,33 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
             setTimeout(() => loadBatch(false), 300);
         }, true);
 
-        // Безопасная инициализация: ждём появления document.body,
-        // т.к. при @run-at document-start его ещё может не быть.
+        // Безопасная инициализация: ждём появления document.body
+        // (при @run-at document-start его ещё может не быть).
         function initCards() {
-            const observer = new MutationObserver(() => {
-                if (initialized || loading) return;
+            const startOnce = () => {
+                if (initialized) return;
                 if (findButton()) {
                     initialized = true;
+                    if (observer) observer.disconnect();
                     loadBatch(true);
                 }
-            });
+            };
 
+            observer = new MutationObserver(startOnce);
             observer.observe(document.body, {
                 childList: true,
                 subtree: true
             });
 
-            if (findButton()) {
-                initialized = true;
-                loadBatch(true);
-            }
+            startOnce();
+
+            // Страховка: если кнопка так и не появилась — снимаем observer
+            setTimeout(() => {
+                if (!initialized && observer) {
+                    observer.disconnect();
+                    observer = null;
+                }
+            }, 60_000);
         }
 
         if (document.body) {
@@ -330,5 +341,5 @@ Install OrangeMonkey/GreaseMonkey & install UserScript
         }
     })();
 
-})();
+})();      
 ```
