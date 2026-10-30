@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kinopoisk — All-in-One (Mirrors + Compact Header + 50 Cards)
+// @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.5.1
+// @version      1.0.3
 // @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
