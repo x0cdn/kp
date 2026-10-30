@@ -8,7 +8,6 @@
 // @match        https://kinopoisk.ru/*
 // @grant        none
 // @run-at       document-start
-// @noframes
 // @updateURL    https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
 // @downloadURL  https://raw.githubusercontent.com/x0cdn/kp/main/kp.user.js
 // ==/UserScript==
@@ -20,9 +19,6 @@
      *  МОДУЛЬ 1 — Кнопки зеркал + авто-перезагрузка после поиска
      * ============================================================ */
     (function mirrorsModule() {
-        const DEBUG = false;
-        const log = (...a) => DEBUG && console.log('[KP:mirrors]', ...a);
-
         const mirrors = [
             { name: "MEN",          base: "https://kinopoisk.men" },
             { name: "LAT",          base: "https://kinopoisk.lat" },
@@ -46,9 +42,6 @@
             const old = document.getElementById('kp-mirrors-buttons');
             if (old) old.remove();
 
-            const root = document.body || document.documentElement;
-            if (!root) return;
-
             const info = getCurrentTypeAndId();
             const container = document.createElement('div');
             container.id = 'kp-mirrors-buttons';
@@ -71,7 +64,6 @@
                 const btn = document.createElement('a');
                 btn.href = info ? `${mirror.base}/${info.type}/${info.id}` : `${mirror.base}/`;
                 btn.target = "_blank";
-                btn.rel = "noopener noreferrer";
                 btn.textContent = mirror.name;
                 btn.style.cssText = `
                     color: #fff;
@@ -82,7 +74,7 @@
                     font-weight: bold;
                     font-size: 15px;
                     box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-                    transition: transform 0.2s;
+                    transition: all 0.2s;
                     margin: 0 8px;
                 `;
                 btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
@@ -90,8 +82,10 @@
                 container.appendChild(btn);
             });
 
-            root.insertBefore(container, root.firstChild);
-            log('кнопки обновлены');
+            (document.body || document.documentElement).insertBefore(
+                container,
+                (document.body || document.documentElement).firstChild
+            );
         }
 
         function isSearchUrl(url) {
@@ -107,7 +101,6 @@
             lastUrl = currentUrl;
 
             if (isSearchUrl(currentUrl)) {
-                log('поиск → перезагрузка');
                 setTimeout(() => location.reload(), 300);
                 return;
             }
@@ -128,8 +121,13 @@
 
         window.addEventListener('popstate', checkUrlChange);
 
+        new MutationObserver(checkUrlChange).observe(document, {
+            subtree: true,
+            childList: true
+        });
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createButtons, { once: true });
+            document.addEventListener('DOMContentLoaded', createButtons);
         } else {
             createButtons();
         }
@@ -188,20 +186,19 @@
         style.id = 'kp-compact-header-v7';
         style.textContent = css;
 
-        // head доступен уже на document-start — повторный вызов не нужен
-        const root = document.head || document.documentElement;
-        if (root && !document.getElementById(style.id)) {
-            root.appendChild(style);
+        function inject() {
+            if (document.getElementById(style.id)) return;
+            (document.head || document.documentElement).appendChild(style);
         }
+
+        inject();
+        document.addEventListener('DOMContentLoaded', inject, { once: true });
     })();
 
     /* ============================================================
      *  МОДУЛЬ 3 — По 50 карточек при открытии и «Показать ещё»
      * ============================================================ */
     (function fiftyCardsModule() {
-        const DEBUG = false;
-        const log = (...a) => DEBUG && console.log('[KP:cards]', ...a);
-
         const BATCH = 50;
         const WAIT_MS = 800;
         const MAX_STALLS = 5;
@@ -209,7 +206,6 @@
 
         let loading = false;
         let initialized = false;
-        let observer = null;
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -261,7 +257,7 @@
                 let stalls = 0;
                 let clicks = 0;
 
-                log(`цель: ${target} карточек`);
+                console.log(`[Kinopoisk] Цель: ${target} карточек`);
 
                 while (clicks < MAX_BATCH_CLICKS) {
                     button = findButton();
@@ -282,7 +278,7 @@
                     }
                 }
 
-                log('загрузка завершена');
+                console.log('[Kinopoisk] Загрузка завершена');
             } finally {
                 loading = false;
             }
@@ -299,33 +295,26 @@
             setTimeout(() => loadBatch(false), 300);
         }, true);
 
-        // Безопасная инициализация: ждём появления document.body
-        // (при @run-at document-start его ещё может не быть).
+        // Безопасная инициализация: ждём появления document.body,
+        // т.к. при @run-at document-start его ещё может не быть.
         function initCards() {
-            const startOnce = () => {
-                if (initialized) return;
+            const observer = new MutationObserver(() => {
+                if (initialized || loading) return;
                 if (findButton()) {
                     initialized = true;
-                    if (observer) observer.disconnect();
                     loadBatch(true);
                 }
-            };
+            });
 
-            observer = new MutationObserver(startOnce);
             observer.observe(document.body, {
                 childList: true,
                 subtree: true
             });
 
-            startOnce();
-
-            // Страховка: если кнопка так и не появилась — снимаем observer
-            setTimeout(() => {
-                if (!initialized && observer) {
-                    observer.disconnect();
-                    observer = null;
-                }
-            }, 60_000);
+            if (findButton()) {
+                initialized = true;
+                loadBatch(true);
+            }
         }
 
         if (document.body) {
