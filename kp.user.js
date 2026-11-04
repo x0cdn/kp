@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.0.3
+// @version      1.0.4
 // @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
@@ -20,6 +20,7 @@
      * ============================================================ */
     (function mirrorsModule() {
         const mirrors = [
+            { name: "kino.vin",          base: "https://kino.vin" },
             { name: "MEN",          base: "https://kinopoisk.men" },
             { name: "LAT",          base: "https://kinopoisk.lat" },
             { name: "CFD",          base: "https://kinopoisk.cfd" },
