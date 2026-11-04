@@ -20,7 +20,7 @@
      * ============================================================ */
     (function mirrorsModule() {
         const mirrors = [
-            { name: "kino.vin",          base: "https://kino.vin" },
+            { name: "kino.vin",     base: "https://kino.vin" },
             { name: "MEN",          base: "https://kinopoisk.men" },
             { name: "LAT",          base: "https://kinopoisk.lat" },
             { name: "CFD",          base: "https://kinopoisk.cfd" },
