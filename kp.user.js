@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.0.5
+// @version      1.0.6
 // @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
@@ -25,11 +25,11 @@
             { name: "MEN",          base: "https://kinopoisk.men" },
             { name: "LAT",          base: "https://kinopoisk.lat" },
             { name: "CFD",          base: "https://kinopoisk.cfd" },
-/*            { name: "ONE v*",       base: "https://kinopoisk.one" },
-            { name: "CAM v*",       base: "https://kinopoisk.cam" }, */
-            { name: "Kinokino.win", base: "https://kinokino.win" },
-            { name: "Kinokino.vip", base: "https://kinokino.vip" }
- /*           { name: ".gold *d",     base: "https://kinopoisk.gold" },
+            { name: "Kinokino.win", base: "https://kinokino.win" }
+/*          { name: "ONE v*",       base: "https://kinopoisk.one" },
+            { name: "CAM v*",       base: "https://kinopoisk.cam" },
+            { name: "Kinokino.vip", base: "https://kinokino.vip" },
+            { name: ".gold *d",     base: "https://kinopoisk.gold" },
             { name: ".cx *d",       base: "https://kinopoisk.cx" } */
         ];
 
@@ -48,7 +48,7 @@
             container.id = 'kp-mirrors-buttons';
             container.style.cssText = `
                 position: fixed;
-                margin-top: 200px;
+                margin-top: 72px;
                 top: 0;
                 left: 0;
                 background: #1f1f1f;
