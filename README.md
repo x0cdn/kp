@@ -16,21 +16,7 @@
 - Ссылки открываются в новой вкладке.
 - На остальных страницах кнопки ведут на главные страницы зеркал.
 
-В текущем списке 11 адресов:
-
-| Название | Адрес |
-| --- | --- |
-| kino.vin | [kino.vin](https://kino.vin) |
-| MEN | [kinopoisk.men](https://kinopoisk.men) |
-| LAT | [kinopoisk.lat](https://kinopoisk.lat) |
-| CFD | [kinopoisk.cfd](https://kinopoisk.cfd) |
-| ONE | [kinopoisk.one](https://kinopoisk.one) |
-| CAM | [kinopoisk.cam](https://kinopoisk.cam) |
-| Kinokino.win | [kinokino.win](https://kinokino.win) |
-| Ss.ru | [sspoisk.ru](https://sspoisk.ru) |
-| Kinokino.vip | [kinokino.vip](https://kinokino.vip) |
-| .gold | [kinopoisk.gold](https://kinopoisk.gold) |
-| .cx | [kinopoisk.cx](https://kinopoisk.cx) |
+В текущем списке 6 адресов
 
 > Доступность сторонних зеркал может меняться. Скрипт добавляет ссылки, но не проверяет их работоспособность.
 
