@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kinopoisk → Mirrors0
+// @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
 // @version      1.0.9
-// @description  Зеркала в шапке + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
+// @description  Зеркала закреплены внизу страницы + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
