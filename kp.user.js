@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.0.7
-// @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная шапка + по 50 карточек
+// @version      1.0.8
+// @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
@@ -21,16 +21,11 @@
     (function mirrorsModule() {
         const mirrors = [
             { name: "Kinokino.win", base: "https://kinokino.win" },
-            { name: "Ss.ru",        base: "https://sspoisk.ru" },
-            { name: "kino.vin",     base: "https://kino.vin" },
-            { name: "MEN",          base: "https://kinopoisk.men" },
-            { name: "LAT",          base: "https://kinopoisk.lat" },
-            { name: "CFD",          base: "https://kinopoisk.cfd" }
-/*          { name: "ONE v*",       base: "https://kinopoisk.one" },
-            { name: "CAM v*",       base: "https://kinopoisk.cam" },
-            { name: "Kinokino.vip", base: "https://kinokino.vip" },
-            { name: ".gold *d",     base: "https://kinopoisk.gold" },
-            { name: ".cx *d",       base: "https://kinopoisk.cx" } */
+     { name: "Ss.ru",        base: "https://sspoisk.ru" },
+     { name: "kino.vin",     base: "https://kino.vin" },
+     { name: "MEN",          base: "https://kinopoisk.men" },
+     { name: "LAT",          base: "https://kinopoisk.lat" },
+     { name: "CFD",          base: "https://kinopoisk.cfd" }
         ];
 
         function getCurrentTypeAndId() {
@@ -47,18 +42,18 @@
             const container = document.createElement('div');
             container.id = 'kp-mirrors-buttons';
             container.style.cssText = `
-                position: fixed;
-                margin-top: 72px;
-                top: 0;
-                left: 0;
-                background: #1f1f1f;
-                z-index: 2147483647;
-                display: flex;
-                flex-direction: column;
-                gap: 14px;
-                padding: 8px 0;
-                font-family: Arial, sans-serif;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            position: fixed;
+            margin-top: 72px;
+            top: 0;
+            left: 0;
+            background: #1f1f1f;
+            z-index: 2147483647;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: 8px 0;
+            font-family: Arial, sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
             `;
 
             mirrors.forEach(mirror => {
@@ -67,16 +62,16 @@
                 btn.target = "_blank";
                 btn.textContent = mirror.name;
                 btn.style.cssText = `
-                    color: #fff;
-                    background: linear-gradient(#ff8800, #ff5500);
-                    padding: 10px 18px;
-                    border-radius: 8px;
-                    text-decoration: none;
-                    font-weight: bold;
-                    font-size: 15px;
-                    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-                    transition: all 0.2s;
-                    margin: 0 8px;
+                color: #fff;
+                background: linear-gradient(#ff8800, #ff5500);
+                padding: 10px 18px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: bold;
+                font-size: 15px;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+                transition: all 0.2s;
+                margin: 0 8px;
                 `;
                 btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
                 btn.addEventListener('mouseout',  () => btn.style.transform = 'none');
@@ -91,7 +86,7 @@
 
         function isSearchUrl(url) {
             return url.includes('kp_query=') || url.includes('/s/') ||
-                   (url.includes('/index.php') && url.includes('query'));
+            (url.includes('/index.php') && url.includes('query'));
         }
 
         let lastUrl = location.href;
@@ -135,65 +130,164 @@
     })();
 
     /* ============================================================
-     *  МОДУЛЬ 2 — Компактная шапка на всех страницах
+     *  МОДУЛЬ 2 — Фиксация шапки через JS, с сохранением натуральной высоты
      * ============================================================ */
-    (function compactHeaderModule() {
-        const css = `
-            #__next header:has(> [class*="styles_branding__"])
-            > [class*="styles_branding__"] {
-                display: none !important;
-            }
+    (function stickyHeaderByJS() {
+        const COMPACT_HEIGHT = 72;   // желаемая компактная высота баннера (не шапки!)
+    let headerEl = null;
+    let navEl = null;
+    let spacer = null;
+    let fixedHeight = 0;         // реальная высота навигации
 
-            #__next header:has(> [class*="styles_branding__"]) {
-                --header-height: 72px !important;
-                height: 72px !important;
-                min-height: 72px !important;
-                max-height: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                overflow: visible !important;
-                background-image: none !important;
-            }
+    const css = `
+    /* Прячем баннер */
+    #__next header:has(> [class*="styles_branding__"])
+    > [class*="styles_branding__"] {
+        display: none !important;
+    }
 
-            #__next header:has(> [class*="styles_branding__"])
-            > .header-navigation {
-                position: relative !important;
-                top: 0 !important;
-                bottom: auto !important;
-                left: 0 !important;
-                transform: none !important;
-                margin-top: 0 !important;
-                height: 72px !important;
-                min-height: 72px !important;
-                z-index: 1000 !important;
-            }
+    /* Убираем лишнюю высоту у шапки, но НЕ сжимаем навигацию */
+    #__next header:has(> [class*="styles_branding__"]) {
+    background-color: #1f1f1f !important;
+    background-image: none !important;
+    }
 
-            #__next header:has(> [class*="styles_branding__"])
-            > [class*="styles_navigationWithBranding__"] {
-                position: relative !important;
-                top: 0 !important;
-                bottom: auto !important;
-                transform: none !important;
-            }
+    /* Спейсер */
+    #kp-header-spacer { display: none; }
+    body.kp-header-fixed #kp-header-spacer { display: block; }
 
-            #__next [class*="rootWithBranding__"] {
-                padding-top: 0 !important;
-                margin-top: 0 !important;
-                background-image: none !important;
-            }
-        `;
+    /* Фиксируем ТОЛЬКО когда надо, и НЕ задаём жёсткую высоту */
+    body.kp-header-fixed #__next header:has(> [class*="styles_branding__"]) {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        z-index: 2147483000 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+    }
 
+    /* Навигация — без принудительных высот, просто видимая */
+    body.kp-header-fixed #__next header:has(> [class*="styles_branding__"])
+    > .header-navigation {
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
+
+    /* Внутренние контейнеры — не даём им схлопнуться */
+    body.kp-header-fixed .header-navigation > * {
+        flex-shrink: 0 !important;
+    }
+    body.kp-header-fixed .styles_mainContainer__AqjDc {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    `;
+
+    function injectStyle() {
+        const old = document.getElementById('kp-js-sticky-header');
+        if (old) old.remove();
         const style = document.createElement('style');
-        style.id = 'kp-compact-header-v7';
+        style.id = 'kp-js-sticky-header';
         style.textContent = css;
+        (document.head || document.documentElement).appendChild(style);
+    }
 
-        function inject() {
-            if (document.getElementById(style.id)) return;
-            (document.head || document.documentElement).appendChild(style);
+    function findHeader() {
+        return document.querySelector(
+            '#__next header [class*="styles_navigationWithBranding__"]'
+        )?.closest('header');
+    }
+
+    function ensureSpacer() {
+        if (spacer && spacer.isConnected) return spacer;
+        spacer = document.getElementById('kp-header-spacer');
+        if (!spacer) {
+            spacer = document.createElement('div');
+            spacer.id = 'kp-header-spacer';
+        }
+        if (headerEl && headerEl.parentNode) {
+            if (headerEl.nextSibling) {
+                headerEl.parentNode.insertBefore(spacer, headerEl.nextSibling);
+            } else {
+                headerEl.parentNode.appendChild(spacer);
+            }
+        }
+        return spacer;
+    }
+
+    function measure() {
+        if (!navEl) return;
+        // Реальная высота навигации (с меню и поиском)
+        const rect = navEl.getBoundingClientRect();
+        fixedHeight = Math.max(rect.height, 48);
+        if (spacer) spacer.style.height = fixedHeight + 'px';
+    }
+
+    function update() {
+        if (!headerEl) {
+            headerEl = findHeader();
+            if (!headerEl) return;
+            navEl = headerEl.querySelector('.header-navigation');
+            ensureSpacer();
+            measure();
         }
 
-        inject();
-        document.addEventListener('DOMContentLoaded', inject, { once: true });
+        const scrollY = window.scrollY || window.pageYOffset;
+        // Позиция, на которой шапка "уедет" — её исходный низ в документе
+        const headerDocTop = headerEl.getBoundingClientRect().top + scrollY;
+        const threshold = headerDocTop + fixedHeight;
+
+        const shouldFix = scrollY + fixedHeight >= threshold;
+
+        if (shouldFix && !document.body.classList.contains('kp-header-fixed')) {
+            measure();
+            document.body.classList.add('kp-header-fixed');
+            if (spacer) spacer.style.display = 'block';
+        } else if (!shouldFix && document.body.classList.contains('kp-header-fixed')) {
+            document.body.classList.remove('kp-header-fixed');
+            if (spacer) spacer.style.display = 'none';
+        }
+    }
+
+    function init() {
+        injectStyle();
+        let raf = null;
+        const onScroll = () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                update();
+                raf = null;
+            });
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', () => { measure(); onScroll(); });
+
+        const tryInit = () => {
+            headerEl = findHeader();
+            if (headerEl) {
+                navEl = headerEl.querySelector('.header-navigation');
+                ensureSpacer();
+                measure();
+                update();
+            } else {
+                setTimeout(tryInit, 500);
+            }
+        };
+        tryInit();
+    }
+
+    if (document.body) {
+        init();
+    } else {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    }
     })();
 
     /* ============================================================
@@ -212,10 +306,10 @@
 
         function findButton() {
             return [...document.querySelectorAll('button, a, [role="button"]')]
-                .find(el =>
-                    /показать\s*(ещё|еще)/i.test(el.textContent.trim()) &&
-                    el.getClientRects().length > 0
-                );
+            .find(el =>
+            /показать\s*(ещё|еще)/i.test(el.textContent.trim()) &&
+            el.getClientRects().length > 0
+            );
         }
 
         function countCards(button) {
@@ -252,8 +346,8 @@
 
                 const startCount = countCards(button);
                 const target = initial
-                    ? Math.max(BATCH, startCount)
-                    : startCount + BATCH;
+                ? Math.max(BATCH, startCount)
+                : startCount + BATCH;
 
                 let stalls = 0;
                 let clicks = 0;
@@ -296,8 +390,6 @@
             setTimeout(() => loadBatch(false), 300);
         }, true);
 
-        // Безопасная инициализация: ждём появления document.body,
-        // т.к. при @run-at document-start его ещё может не быть.
         function initCards() {
             const observer = new MutationObserver(() => {
                 if (initialized || loading) return;
