@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kinopoisk → Mirrors
+// @name         Kinopoisk → Mirrors0
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.0.8
-// @description  Кнопки зеркал + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
+// @version      1.0.9
+// @description  Зеркала в шапке + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
 // @match        https://kinopoisk.ru/*
@@ -16,7 +16,7 @@
     'use strict';
 
     /* ============================================================
-     *  МОДУЛЬ 1 — Кнопки зеркал + авто-перезагрузка после поиска
+     *  МОДУЛЬ 1 — Зеркала текстом, закреплены внизу страницы
      * ============================================================ */
     (function mirrorsModule() {
         const mirrors = [
@@ -28,32 +28,61 @@
      { name: "CFD",          base: "https://kinopoisk.cfd" }
         ];
 
+        let container = null;
+        let spacer = null;
+        let resizeObs = null;
+
         function getCurrentTypeAndId() {
             const path = window.location.pathname.toLowerCase();
             const match = path.match(/\/(film|series)\/(\d+)/i);
             return match ? { type: match[1], id: match[2] } : null;
         }
 
-        function createButtons() {
-            const old = document.getElementById('kp-mirrors-buttons');
-            if (old) old.remove();
+        // Спейсер внизу страницы, чтобы фиксированная панель не перекрывала контент
+        function ensureSpacer() {
+            if (spacer && spacer.isConnected) return spacer;
+            spacer = document.getElementById('kp-mirrors-bottom-spacer');
+            if (!spacer) {
+                spacer = document.createElement('div');
+                spacer.id = 'kp-mirrors-bottom-spacer';
+                spacer.style.cssText = `
+                height: 0;
+                width: 100%;
+                pointer-events: none;
+                `;
+                (document.body || document.documentElement).appendChild(spacer);
+            }
+            return spacer;
+        }
 
+        function updateSpacerHeight() {
+            const sp = ensureSpacer();
+            if (container) {
+                sp.style.height = container.offsetHeight + 'px';
+            }
+        }
+
+        function buildContainer() {
             const info = getCurrentTypeAndId();
-            const container = document.createElement('div');
-            container.id = 'kp-mirrors-buttons';
-            container.style.cssText = `
+            const el = document.createElement('div');
+            el.id = 'kp-mirrors-buttons';
+            el.style.cssText = `
             position: fixed;
-            margin-top: 72px;
-            top: 0;
+            bottom: 0;
             left: 0;
-            background: #1f1f1f;
+            right: 0;
             z-index: 2147483647;
             display: flex;
-            flex-direction: column;
-            gap: 14px;
-            padding: 8px 0;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 6px 8px;
             font-family: Arial, sans-serif;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            background: #1f1f1f;
+            box-sizing: border-box;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.5);
             `;
 
             mirrors.forEach(mirror => {
@@ -63,25 +92,41 @@
                 btn.textContent = mirror.name;
                 btn.style.cssText = `
                 color: #fff;
-                background: linear-gradient(#ff8800, #ff5500);
-                padding: 10px 18px;
-                border-radius: 8px;
                 text-decoration: none;
                 font-weight: bold;
                 font-size: 15px;
-                box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-                transition: all 0.2s;
-                margin: 0 8px;
+                white-space: nowrap;
                 `;
-                btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
-                btn.addEventListener('mouseout',  () => btn.style.transform = 'none');
-                container.appendChild(btn);
+                el.appendChild(btn);
             });
+            return el;
+        }
 
-            (document.body || document.documentElement).insertBefore(
-                container,
-                (document.body || document.documentElement).firstChild
-            );
+        function ensureMounted() {
+            if (!container) container = buildContainer();
+
+            if (!container.isConnected) {
+                (document.body || document.documentElement).appendChild(container);
+            } else {
+                // Обновляем ссылки при смене URL
+                const info = getCurrentTypeAndId();
+                const links = container.querySelectorAll('a');
+                mirrors.forEach((mirror, i) => {
+                    if (links[i]) {
+                        links[i].href = info
+                        ? `${mirror.base}/${info.type}/${info.id}`
+                        : `${mirror.base}/`;
+                    }
+                });
+            }
+
+            ensureSpacer();
+            updateSpacerHeight();
+
+            if (window.ResizeObserver && !resizeObs) {
+                resizeObs = new ResizeObserver(() => updateSpacerHeight());
+                resizeObs.observe(container);
+            }
         }
 
         function isSearchUrl(url) {
@@ -100,7 +145,7 @@
                 setTimeout(() => location.reload(), 300);
                 return;
             }
-            createButtons();
+            ensureMounted();
         };
 
         const originalPushState = history.pushState;
@@ -116,6 +161,7 @@
         };
 
         window.addEventListener('popstate', checkUrlChange);
+        window.addEventListener('resize', updateSpacerHeight);
 
         new MutationObserver(checkUrlChange).observe(document, {
             subtree: true,
@@ -123,175 +169,185 @@
         });
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createButtons);
+            document.addEventListener('DOMContentLoaded', ensureMounted);
         } else {
-            createButtons();
+            ensureMounted();
         }
     })();
 
     /* ============================================================
-     *  МОДУЛЬ 2 — Фиксация шапки через JS, с сохранением натуральной высоты
+     *  МОДУЛЬ 2 — Фиксация шапки (вместе с зеркалами)
      * ============================================================ */
     (function stickyHeaderByJS() {
-        const COMPACT_HEIGHT = 72;   // желаемая компактная высота баннера (не шапки!)
-    let headerEl = null;
-    let navEl = null;
-    let spacer = null;
-    let fixedHeight = 0;         // реальная высота навигации
+        let headerEl = null;
+        let spacer = null;
+        let fixedHeight = 0;
 
-    const css = `
-    /* Прячем баннер */
-    #__next header:has(> [class*="styles_branding__"])
-    > [class*="styles_branding__"] {
-        display: none !important;
-    }
-
-    /* Убираем лишнюю высоту у шапки, но НЕ сжимаем навигацию */
-    #__next header:has(> [class*="styles_branding__"]) {
-    background-color: #1f1f1f !important;
-    background-image: none !important;
-    }
-
-    /* Спейсер */
-    #kp-header-spacer { display: none; }
-    body.kp-header-fixed #kp-header-spacer { display: block; }
-
-    /* Фиксируем ТОЛЬКО когда надо, и НЕ задаём жёсткую высоту */
-    body.kp-header-fixed #__next header:has(> [class*="styles_branding__"]) {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: 100% !important;
-        z-index: 2147483000 !important;
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        overflow: visible !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
-    }
-
-    /* Навигация — без принудительных высот, просто видимая */
-    body.kp-header-fixed #__next header:has(> [class*="styles_branding__"])
-    > .header-navigation {
-        overflow: visible !important;
-        height: auto !important;
-        min-height: 0 !important;
-    }
-
-    /* Внутренние контейнеры — не даём им схлопнуться */
-    body.kp-header-fixed .header-navigation > * {
-        flex-shrink: 0 !important;
-    }
-    body.kp-header-fixed .styles_mainContainer__AqjDc {
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-    }
-    `;
-
-    function injectStyle() {
-        const old = document.getElementById('kp-js-sticky-header');
-        if (old) old.remove();
-        const style = document.createElement('style');
-        style.id = 'kp-js-sticky-header';
-        style.textContent = css;
-        (document.head || document.documentElement).appendChild(style);
-    }
-
-    function findHeader() {
-        return document.querySelector(
-            '#__next header [class*="styles_navigationWithBranding__"]'
-        )?.closest('header');
-    }
-
-    function ensureSpacer() {
-        if (spacer && spacer.isConnected) return spacer;
-        spacer = document.getElementById('kp-header-spacer');
-        if (!spacer) {
-            spacer = document.createElement('div');
-            spacer.id = 'kp-header-spacer';
+        const css = `
+        #__next header:has(> [class*="styles_branding__"])
+        > [class*="styles_branding__"] {
+            display: none !important;
         }
-        if (headerEl && headerEl.parentNode) {
-            if (headerEl.nextSibling) {
-                headerEl.parentNode.insertBefore(spacer, headerEl.nextSibling);
-            } else {
-                headerEl.parentNode.appendChild(spacer);
+
+        #__next header:has(> [class*="styles_branding__"]) {
+        background-color: #1f1f1f !important;
+        background-image: none !important;
+        }
+
+        #kp-header-spacer { display: none; }
+        body.kp-header-fixed #kp-header-spacer { display: block; }
+
+        body.kp-header-fixed #__next header:has(> [class*="styles_branding__"]) {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            z-index: 2147483000 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+        }
+
+        body.kp-header-fixed #__next header:has(> [class*="styles_branding__"])
+        > .header-navigation {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+        }
+
+        body.kp-header-fixed .header-navigation > * {
+            flex-shrink: 0 !important;
+        }
+        body.kp-header-fixed .styles_mainContainer__AqjDc {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+
+        /* Зеркала внутри шапки — не сжимаем */
+        #kp-mirrors-buttons { flex: 0 0 auto !important; }
+        #kp-mirrors-buttons a { flex: 0 0 auto !important; }
+        `;
+
+        function injectStyle() {
+            const old = document.getElementById('kp-js-sticky-header');
+            if (old) old.remove();
+            const style = document.createElement('style');
+            style.id = 'kp-js-sticky-header';
+            style.textContent = css;
+            (document.head || document.documentElement).appendChild(style);
+        }
+
+        function findHeader() {
+            return document.querySelector(
+                '#__next header [class*="styles_navigationWithBranding__"]'
+            )?.closest('header');
+        }
+
+        function ensureSpacer() {
+            if (spacer && spacer.isConnected) return spacer;
+            spacer = document.getElementById('kp-header-spacer');
+            if (!spacer) {
+                spacer = document.createElement('div');
+                spacer.id = 'kp-header-spacer';
             }
+            if (headerEl && headerEl.parentNode) {
+                if (headerEl.nextSibling) {
+                    headerEl.parentNode.insertBefore(spacer, headerEl.nextSibling);
+                } else {
+                    headerEl.parentNode.appendChild(spacer);
+                }
+            }
+            return spacer;
         }
-        return spacer;
-    }
 
-    function measure() {
-        if (!navEl) return;
-        // Реальная высота навигации (с меню и поиском)
-        const rect = navEl.getBoundingClientRect();
-        fixedHeight = Math.max(rect.height, 48);
-        if (spacer) spacer.style.height = fixedHeight + 'px';
-    }
-
-    function update() {
-        if (!headerEl) {
-            headerEl = findHeader();
+        // Меряем ВСЮ шапку — вместе с зеркалами
+        function measure() {
             if (!headerEl) return;
-            navEl = headerEl.querySelector('.header-navigation');
-            ensureSpacer();
-            measure();
+            const rect = headerEl.getBoundingClientRect();
+            fixedHeight = Math.max(rect.height, 48);
+            if (spacer) spacer.style.height = fixedHeight + 'px';
+            document.documentElement.style.setProperty(
+                '--kp-header-height',
+                fixedHeight + 'px'
+            );
         }
 
-        const scrollY = window.scrollY || window.pageYOffset;
-        // Позиция, на которой шапка "уедет" — её исходный низ в документе
-        const headerDocTop = headerEl.getBoundingClientRect().top + scrollY;
-        const threshold = headerDocTop + fixedHeight;
+        function update() {
+            if (headerEl && !headerEl.isConnected) {
+                // React пересоздал шапку — сбрасываем и ищем заново
+                headerEl = null;
+                spacer = null;
+                fixedHeight = 0;
+            }
 
-        const shouldFix = scrollY + fixedHeight >= threshold;
-
-        if (shouldFix && !document.body.classList.contains('kp-header-fixed')) {
-            measure();
-            document.body.classList.add('kp-header-fixed');
-            if (spacer) spacer.style.display = 'block';
-        } else if (!shouldFix && document.body.classList.contains('kp-header-fixed')) {
-            document.body.classList.remove('kp-header-fixed');
-            if (spacer) spacer.style.display = 'none';
-        }
-    }
-
-    function init() {
-        injectStyle();
-        let raf = null;
-        const onScroll = () => {
-            if (raf) return;
-            raf = requestAnimationFrame(() => {
-                update();
-                raf = null;
-            });
-        };
-
-        window.addEventListener('scroll', onScroll, { passive: true });
-        window.addEventListener('resize', () => { measure(); onScroll(); });
-
-        const tryInit = () => {
-            headerEl = findHeader();
-            if (headerEl) {
-                navEl = headerEl.querySelector('.header-navigation');
+            if (!headerEl) {
+                headerEl = findHeader();
+                if (!headerEl) return;
                 ensureSpacer();
                 measure();
-                update();
-            } else {
-                setTimeout(tryInit, 500);
             }
-        };
-        tryInit();
-    }
 
-    if (document.body) {
-        init();
-    } else {
-        document.addEventListener('DOMContentLoaded', init, { once: true });
-    }
+            const scrollY = window.scrollY || window.pageYOffset;
+            const headerDocTop = headerEl.getBoundingClientRect().top + scrollY;
+            const threshold = headerDocTop + fixedHeight;
+
+            const shouldFix = scrollY + fixedHeight >= threshold;
+
+            if (shouldFix && !document.body.classList.contains('kp-header-fixed')) {
+                measure();
+                document.body.classList.add('kp-header-fixed');
+                if (spacer) spacer.style.display = 'block';
+            } else if (!shouldFix && document.body.classList.contains('kp-header-fixed')) {
+                document.body.classList.remove('kp-header-fixed');
+                if (spacer) spacer.style.display = 'none';
+            }
+        }
+
+        function init() {
+            injectStyle();
+            let raf = null;
+            const onScroll = () => {
+                if (raf) return;
+                raf = requestAnimationFrame(() => {
+                    update();
+                    raf = null;
+                });
+            };
+
+            window.addEventListener('scroll', onScroll, { passive: true });
+            window.addEventListener('resize', () => { measure(); onScroll(); });
+
+            const tryInit = () => {
+                headerEl = findHeader();
+                if (headerEl) {
+                    ensureSpacer();
+                    measure();
+                    update();
+
+                    // Следим за изменением высоты шапки (добавление зеркал,
+                    // перенос на вторую строку и т.п.)
+                    if (window.ResizeObserver) {
+                        new ResizeObserver(() => measure()).observe(headerEl);
+                    }
+                } else {
+                    setTimeout(tryInit, 500);
+                }
+            };
+            tryInit();
+        }
+
+        if (document.body) {
+            init();
+        } else {
+            document.addEventListener('DOMContentLoaded', init, { once: true });
+        }
     })();
 
     /* ============================================================
-     *  МОДУЛЬ 3 — По 50 карточек при открытии и «Показать ещё»
+     *  МОДУЛЬ 3 — По 50 карточек
      * ============================================================ */
     (function fiftyCardsModule() {
         const BATCH = 50;

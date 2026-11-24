@@ -2,7 +2,7 @@
 
 Пользовательский скрипт для [Кинопоиска](https://www.kinopoisk.ru/), который добавляет быстрый переход на сайты-зеркала, упрощает интерфейс и автоматизирует загрузку карточек фильмов и сериалов.
 
-[![Version](https://img.shields.io/badge/version-1.0.8-orange)](https://github.com/x0cdn/kp/blob/main/kp.user.js)
+[![Version](https://img.shields.io/badge/version-1.0.9-orange)](https://github.com/x0cdn/kp/blob/main/kp.user.js)
 [![Userscript](https://img.shields.io/badge/userscript-Tampermonkey%20%2F%20Violentmonkey-blue)](https://github.com/x0cdn/kp/raw/refs/heads/main/kp.user.js)
 
 ## Возможности
