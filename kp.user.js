@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kinopoisk → Mirrors
 // @namespace    https://github.com/x0cdn/kp
-// @version      1.0.9
+// @version      1.1.0
 // @description  Зеркала закреплены внизу страницы + авто-перезагрузка после поиска + компактная фиксированная шапка + по 50 карточек
 // @author       @x0cdn
 // @match        https://www.kinopoisk.ru/*
@@ -16,6 +16,74 @@
     'use strict';
 
     /* ============================================================
+     *  МОДУЛЬ 0 — Полная перезагрузка при переходе на film/series
+     *  (перехват кликов + pushState + popstate)
+     * ============================================================ */
+    (function forceReloadOnMediaNavigation() {
+        const MEDIA_RE = /\/(film|series)\/\d+/i;
+
+        function isMediaUrl(url) {
+            try {
+                const u = new URL(url, location.origin);
+                return u.origin === location.origin && MEDIA_RE.test(u.pathname);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // --- 1. Перехват кликов по ссылкам ---
+        document.addEventListener('click', function (e) {
+            // Не мешаем: новая вкладка, средняя кнопка, ctrl/cmd/shift, правая кнопка
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+            const link = e.target.closest && e.target.closest('a[href]');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            if (!href) return;
+
+            // Только внутренние ссылки на film/series с ID
+            if (!isMediaUrl(link.href)) return;
+
+            // Если это та же страница — не трогаем
+            if (link.href === location.href) return;
+
+            // Принудительная полная навигация
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = link.href;
+        }, true); // capture — срабатываем раньше React
+
+        // --- 2. Перехват pushState / replaceState (на случай программной навигации) ---
+        const originalPushState = history.pushState;
+        history.pushState = function (...args) {
+            const prev = location.pathname;
+            originalPushState.apply(this, args);
+            const next = location.pathname;
+            if (next !== prev && MEDIA_RE.test(next)) {
+                location.reload();
+            }
+        };
+
+        const originalReplaceState = history.replaceState;
+        history.replaceState = function (...args) {
+            const prev = location.pathname;
+            originalReplaceState.apply(this, args);
+            const next = location.pathname;
+            if (next !== prev && MEDIA_RE.test(next)) {
+                location.reload();
+            }
+        };
+
+        // --- 3. Кнопки назад/вперёд ---
+        window.addEventListener('popstate', () => {
+            if (MEDIA_RE.test(location.pathname)) {
+                location.reload();
+            }
+        });
+    })();
+
+    /* ============================================================
      *  МОДУЛЬ 1 — Зеркала текстом, закреплены внизу страницы
      * ============================================================ */
     (function mirrorsModule() {
@@ -25,31 +93,96 @@
      { name: "kino.vin",     base: "https://kino.vin" },
      { name: "MEN",          base: "https://kinopoisk.men" },
      { name: "LAT",          base: "https://kinopoisk.lat" },
-     { name: "CFD",          base: "https://kinopoisk.cfd" }
+     { name: "CFD",          base: "https://kinopoisk.cfd" },
+     { name: "Kinopoisk.Film", template: "https://www.kinopoisk.film/{type}/{id}/" },
+     { name: "Kinopoisk.One",  template: "https://www.kinopoisk.one/{type}/{id}/" },
+     { name: "Rutube",         template: "https://rutube.ru/search/?query={title}" },
+     { name: "VK Video",       template: "https://vkvideo.ru/?q={title}" }
         ];
 
         let container = null;
         let spacer = null;
         let resizeObs = null;
 
-        function getCurrentTypeAndId() {
-            const path = window.location.pathname.toLowerCase();
-            const match = path.match(/\/(film|series)\/(\d+)/i);
-            return match ? { type: match[1], id: match[2] } : null;
+        function transliterate(text) {
+            if (!text) return '';
+            const rus = "абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+            const eng = "abvgdeezzijklmnoprstufhzcss_y_euaABVGDEEZZIJKLMNOPRSTUFHZCSS_Y_EUA";
+            let res = '';
+            for (let i = 0; i < text.length; i++) {
+                const idx = rus.indexOf(text[i]);
+                res += idx !== -1 ? eng[idx] : text[i];
+            }
+            return res.replace(/\s+/g, '-').toLowerCase();
         }
 
-        // Спейсер внизу страницы, чтобы фиксированная панель не перекрывала контент
+        function getPageType() {
+            return window.location.href.includes('/series/') ? 'series' : 'film';
+        }
+
+        function getId() {
+            const parts = window.location.pathname.split('/');
+            const idx = parts.findIndex(p => p === 'film' || p === 'series');
+            return (idx !== -1 && parts[idx + 1]) ? parts[idx + 1] : null;
+        }
+
+        function getTitle() {
+            let raw = null;
+
+            const itempropName = document.querySelector('[itemprop="name"]');
+            if (itempropName) raw = itempropName.textContent;
+
+            if (!raw) {
+                const titleBlock = document.querySelector(
+                    '[class*="styles_title"] h1, [class*="styles_root"] h1, h1[class*="styles_title"]'
+                );
+                if (titleBlock) raw = titleBlock.textContent;
+            }
+
+            if (!raw) {
+                const h1 = document.querySelector('h1');
+                if (h1) raw = h1.textContent;
+            }
+
+            if (!raw) {
+                const og = document.querySelector('meta[property="og:title"]');
+                if (og) raw = og.content;
+            }
+
+            if (!raw) return null;
+
+            let title = raw
+            .replace(/^Кинопоиск\.\s*/i, '')
+            .replace(/\s*\(\d{4}(\s*[–-]\s*\d{4})?\)\s*/g, ' ')
+            .replace(/\s*[–-]\s*смотреть онлайн.*$/i, '')
+            .replace(/\s*смотреть онлайн.*$/i, '')
+            .replace(/\s*\(сериал\)\s*/i, ' ')
+            .replace(/\s*\(фильм\)\s*/i, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+            return title || null;
+        }
+
+        function buildUrl(template, id, title) {
+            let url = template;
+            const type = getPageType();
+            const translit = transliterate(title);
+            url = url
+            .replace(/{id}/g, id || '')
+            .replace(/{type}/g, type)
+            .replace(/{title}/g, encodeURIComponent(title || ''))
+            .replace(/{translit}/g, translit);
+            return url;
+        }
+
         function ensureSpacer() {
             if (spacer && spacer.isConnected) return spacer;
             spacer = document.getElementById('kp-mirrors-bottom-spacer');
             if (!spacer) {
                 spacer = document.createElement('div');
                 spacer.id = 'kp-mirrors-bottom-spacer';
-                spacer.style.cssText = `
-                height: 0;
-                width: 100%;
-                pointer-events: none;
-                `;
+                spacer.style.cssText = `height:0;width:100%;pointer-events:none;`;
                 (document.body || document.documentElement).appendChild(spacer);
             }
             return spacer;
@@ -57,13 +190,12 @@
 
         function updateSpacerHeight() {
             const sp = ensureSpacer();
-            if (container) {
-                sp.style.height = container.offsetHeight + 'px';
-            }
+            if (container) sp.style.height = container.offsetHeight + 'px';
         }
 
         function buildContainer() {
-            const info = getCurrentTypeAndId();
+            const id = getId();
+            const title = getTitle();
             const el = document.createElement('div');
             el.id = 'kp-mirrors-buttons';
             el.style.cssText = `
@@ -87,35 +219,53 @@
 
             mirrors.forEach(mirror => {
                 const btn = document.createElement('a');
-                btn.href = info ? `${mirror.base}/${info.type}/${info.id}` : `${mirror.base}/`;
                 btn.target = "_blank";
                 btn.textContent = mirror.name;
+
+                if (mirror.template) {
+                    btn.href = buildUrl(mirror.template, id, title);
+                } else if (mirror.base) {
+                    btn.href = id ? `${mirror.base}/${getPageType()}/${id}` : `${mirror.base}/`;
+                } else {
+                    btn.href = '#';
+                }
+
                 btn.style.cssText = `
                 color: #fff;
                 text-decoration: none;
                 font-weight: bold;
                 font-size: 15px;
                 white-space: nowrap;
+                transition: color 0.15s ease;
                 `;
+                btn.addEventListener('mouseenter', () => btn.style.color = '#ff8800');
+                btn.addEventListener('mouseleave', () => btn.style.color = '#fff');
                 el.appendChild(btn);
             });
             return el;
         }
 
         function ensureMounted() {
+            const id = getId();
+
+            if (!id) {
+                if (container && container.isConnected) container.remove();
+                return;
+            }
+
             if (!container) container = buildContainer();
 
             if (!container.isConnected) {
                 (document.body || document.documentElement).appendChild(container);
             } else {
-                // Обновляем ссылки при смене URL
-                const info = getCurrentTypeAndId();
+                const title = getTitle();
                 const links = container.querySelectorAll('a');
                 mirrors.forEach((mirror, i) => {
-                    if (links[i]) {
-                        links[i].href = info
-                        ? `${mirror.base}/${info.type}/${info.id}`
-                        : `${mirror.base}/`;
+                    if (!links[i]) return;
+                    if (mirror.template) {
+                        links[i].href = buildUrl(mirror.template, id, title);
+                    } else if (mirror.base) {
+                        links[i].href = `${mirror.base}/${getPageType()}/${id}`;
                     }
                 });
             }
